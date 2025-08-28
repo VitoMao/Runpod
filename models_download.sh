@@ -3,16 +3,14 @@ set -Eeuo pipefail
 
 echo "
 ----------------------------------------
-📥 Downloading models...
+📥 Uploading models.json...
 ----------------------------------------"
 
 ROOT="/workspace/ComfyUI"
 cd "$ROOT"
 
-MODELS_JSON="/tmp/models.json"
-MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
-
-wget -q -O "$MODELS_JSON" "$MODELS_URL"
+# Assume the models.json file has been uploaded to /workspace/ComfyUI
+MODELS_JSON="/workspace/ComfyUI/models.json"
 
 # Create required directories (handles spaces safely)
 while IFS= read -r p; do

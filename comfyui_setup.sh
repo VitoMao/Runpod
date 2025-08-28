@@ -84,6 +84,10 @@ if [ -d "$ENV_PATH" ] && [ ! -f "$ENV_PATH/bin/python" ]; then
     rm -rf "$ENV_PATH"
 fi
 
+# Accept Conda's terms of service for the main and R channels
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
 # 检查是否存在有效的Python环境
 if [ ! -f "$ENV_PATH/bin/python" ]; then
     echo "🔄 Creating new conda environment at $ENV_PATH"

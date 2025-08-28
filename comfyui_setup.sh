@@ -79,6 +79,8 @@ echo "
 if ! conda info --envs | grep -q "comfyui"; then
     conda create -n comfyui python=3.12 -y
     echo "✅ Created comfyui environment with Python 3.12"
+    # 关键修复：显式刷新环境列表
+    conda info --envs > /dev/null
 else
     echo "✅ comfyui environment already exists, skipping creation..."
     # Check Python version in existing environment
@@ -88,17 +90,19 @@ else
         conda env remove -n comfyui -y
         conda create -n comfyui python=3.12 -y
         echo "✅ Recreated comfyui environment with Python 3.12"
+        # 关键修复：显式刷新环境列表
+        conda info --envs > /dev/null
     fi
 fi
 
-# Setup comfyui environment
+# 关键修复：使用绝对路径激活环境
 echo "
 ----------------------------------------
 🔧 Setting up comfyui environment...
 ----------------------------------------"
 echo "🔄 Activating comfyui environment..."
 set -x  # Enable debug mode to see each command
-conda activate comfyui
+source activate /workspace/miniconda3/envs/comfyui
 RESULT=$?
 echo "Activation exit code: $RESULT"
 if [ "$CONDA_DEFAULT_ENV" != "comfyui" ]; then

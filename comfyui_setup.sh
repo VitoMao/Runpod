@@ -1,11 +1,8 @@
-#this script corresponds to this tutorial video: https://www.youtube.com/watch?v=5hCGDcfPy8Y
-#You only need to run this script once. However, when you start a new runpod server, you will  need to  initialize conda in the shell. 
-#1. run the following command to intialize conda in the shell
-#/workspace/miniconda3/bin/conda init bash
-#2. run the following command to activate the conda environment
-#conda activate comfyui
-#3. run the following command to start comfyui
-#python main.py --listen
+#To launch ComfyUI directly:
+#source /workspace/miniconda3/etc/profile.d/conda.sh && \
+#conda activate /workspace/miniconda3/envs/comfyui && \
+#cd /workspace/ComfyUI && \
+#python main.py
 
 #!/bin/bash
 # ComfyUI single environment setup with Python 3.12

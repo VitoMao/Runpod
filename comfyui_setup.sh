@@ -96,11 +96,16 @@ echo "
 ----------------------------------------
 🔧 Setting up comfyui environment...
 ----------------------------------------"
+echo "🔄 Activating comfyui environment..."
+set -x  # Enable debug mode to see each command
 conda activate comfyui
+RESULT=$?
+echo "Activation exit code: $RESULT"
 if [ "$CONDA_DEFAULT_ENV" != "comfyui" ]; then
     echo "❌ Failed to activate comfyui environment! Current env: $CONDA_DEFAULT_ENV"
     exit 1
 fi
+echo "✅ Successfully activated comfyui environment"
 
 # Install system dependencies for Python 3.12 support
 echo "

@@ -30,23 +30,8 @@
   },
 
   {
-    "url": "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors?download=true",
-    "path": "/workspace/ComfyUI/models/clip_vision/sigclip_vision_patch14_384.safetensors"
-  },
-
-  {
-    "url": "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors?download=true",
-    "path": "/workspace/ComfyUI/models/clip_vision/sigclip_vision_patch14_384.safetensors"
-  },
-
-  {
     "url": "https://huggingface.co/QuanSun/EVA-CLIP/blob/main/EVA02_CLIP_L_336_psz14_s6B.pt?download=true",
     "path": "/workspace/ComfyUI/models/clip_vision/EVA02_CLIP_L_336_psz14_s6B.pt"
-  },
-
-  {
-    "url": "https://huggingface.co/Shakker-Labs/FLUX.1-dev-ControlNet-Union-Pro-2.0/resolve/main/diffusion_pytorch_model.safetensors?download=true",
-    "path": "/workspace/ComfyUI/models/controlnet/flux/FLUX.1-dev-ControlNet-Union-Pro-2.0.safetensors"
   },
 
   {
@@ -126,6 +111,6 @@
 
   {
     "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true",
-    "path": "/workspace/ComfyUI/models/vae/qwen_image_vae.safetensor"
+    "path": "/workspace/ComfyUI/models/vae/qwen_image_vae.safetensors"
   }
 ]

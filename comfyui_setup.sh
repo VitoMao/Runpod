@@ -1,0 +1,173 @@
+#!/bin/bash
+# ComfyUI single environment setup with Python 3.12
+
+echo "
+========================================
+🚀 Starting ComfyUI setup...
+========================================
+"
+
+# Create base directories
+echo "
+----------------------------------------
+📁 Creating base directories...
+----------------------------------------"
+mkdir -p /workspace/ComfyUI
+mkdir -p /workspace/miniconda3
+
+# Download and install Miniconda with Python 3.12 support
+echo "
+----------------------------------------
+📥 Downloading and installing Miniconda...
+----------------------------------------"
+if [ ! -f "/workspace/miniconda3/bin/conda" ]; then
+    cd /workspace/miniconda3
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    chmod +x Miniconda3-latest-Linux-x86_64.sh
+    ./Miniconda3-latest-Linux-x86_64.sh -b -p /workspace/miniconda3 -f
+    rm Miniconda3-latest-Linux-x86_64.sh
+else
+    echo "✅ Miniconda already installed, skipping..."
+fi
+
+# Initialize conda in the shell
+echo "
+----------------------------------------
+🐍 Initializing conda...
+----------------------------------------"
+source /workspace/miniconda3/bin/activate
+conda init bash > /dev/null 2>&1
+eval "$(/workspace/miniconda3/bin/conda shell.bash hook)"
+
+# Clone ComfyUI
+echo "
+----------------------------------------
+📥 Cloning ComfyUI repository...
+----------------------------------------"
+if [ ! -d "/workspace/ComfyUI/.git" ]; then
+    git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI
+else
+    echo "✅ ComfyUI repository already exists, skipping clone..."
+fi
+
+# Clone ComfyUI-Manager
+echo "
+----------------------------------------
+📥 Installing ComfyUI-Manager...
+----------------------------------------"
+MANAGER_DIR="/workspace/ComfyUI/custom_nodes/ComfyUI-Manager"
+if [ ! -d "$MANAGER_DIR/.git" ]; then
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$MANAGER_DIR"
+else
+    echo "✅ ComfyUI-Manager already installed, skipping clone..."
+fi
+
+# Create conda environment with Python 3.12
+echo "
+----------------------------------------
+🌟 Creating conda environment with Python 3.12...
+----------------------------------------"
+if ! conda info --envs | grep -q "comfyui"; then
+    conda create -n comfyui python=3.12 -y
+    echo "✅ Created comfyui environment with Python 3.12"
+else
+    echo "✅ comfyui environment already exists, skipping creation..."
+    # Check Python version in existing environment
+    PYTHON_VERSION=$(conda run -n comfyui python --version 2>&1 | cut -d' ' -f2 | cut -d. -f1-2)
+    if [ "$PYTHON_VERSION" != "3.12" ]; then
+        echo "⚠️ Existing environment uses Python $PYTHON_VERSION, recreating with 3.12..."
+        conda env remove -n comfyui -y
+        conda create -n comfyui python=3.12 -y
+        echo "✅ Recreated comfyui environment with Python 3.12"
+    fi
+fi
+
+# Setup comfyui environment
+echo "
+----------------------------------------
+🔧 Setting up comfyui environment...
+----------------------------------------"
+conda activate comfyui
+if [ "$CONDA_DEFAULT_ENV" != "comfyui" ]; then
+    echo "❌ Failed to activate comfyui environment! Current env: $CONDA_DEFAULT_ENV"
+    exit 1
+fi
+
+# Install system dependencies for Python 3.12 support
+echo "
+----------------------------------------
+🔧 Installing system dependencies...
+----------------------------------------"
+sudo apt update -qq
+sudo apt install -y aria2 jq wget build-essential python3.12-dev
+
+echo "
+----------------------------------------
+📦 Installing ComfyUI requirements with Python 3.12...
+----------------------------------------"
+cd /workspace/ComfyUI
+
+# Ensure pip is up-to-date
+pip install --upgrade pip
+
+# Install requirements with Python 3.12
+pip install --no-cache-dir -r requirements.txt
+
+echo "
+----------------------------------------
+📦 Installing ComfyUI-Manager requirements...
+----------------------------------------"
+cd custom_nodes/ComfyUI-Manager
+pip install --no-cache-dir -r requirements.txt
+
+# Return to base environment
+conda deactivate
+
+echo "
+========================================
+✨ Setup complete! ✨
+========================================
+"
+
+# Download models
+echo "
+----------------------------------------
+📥 Downloading models...
+----------------------------------------"
+
+MODELS_JSON="/tmp/models.json"
+MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
+
+cd /workspace/ComfyUI
+wget -q -O "$MODELS_JSON" "$MODELS_URL"
+
+# Create required directories
+jq -r '.[].path' "$MODELS_JSON" | xargs -I {} dirname {} | sort -u | xargs -I {} mkdir -p {}
+
+# Convert JSON to aria2 input format
+jq -r '.[] | "\(.url)\n  out=\(.path)"' "$MODELS_JSON" > /tmp/aria2_input.txt
+
+# Batch download
+aria2c -x 16 -s 16 -k 1M \
+  --max-concurrent-downloads=3 \
+  --max-tries=5 \
+  --continue=true \
+  --input-file=/tmp/aria2_input.txt
+
+# Verify downloads
+downloaded=$(find /workspace/ComfyUI/models -type f | wc -l)
+expected=$(jq 'length' "$MODELS_JSON")
+if [ "$downloaded" -eq "$expected" ]; then
+  echo "✅ All $downloaded models downloaded successfully!"
+else
+  echo "❌ Download incomplete! Downloaded: $downloaded, Expected: $expected"
+fi
+
+# Final Python version check
+echo "
+----------------------------------------
+🐍 Final environment check:
+----------------------------------------"
+conda activate comfyui
+python --version
+conda deactivate

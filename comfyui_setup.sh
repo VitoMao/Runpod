@@ -24,7 +24,20 @@ echo "
 mkdir -p /workspace/ComfyUI
 mkdir -p /workspace/miniconda3
 
-# Download and install Miniconda
+# Install system dependencies
+echo "
+----------------------------------------
+🔧 Installing system dependencies...
+----------------------------------------"
+if command -v apt-get >/dev/null 2>&1; then
+  SUDO=""
+  command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+  export DEBIAN_FRONTEND=noninteractive
+  $SUDO apt-get update -qq
+  $SUDO apt-get install -y --no-install-recommends git wget aria2 jq build-essential
+fi
+
+# Download and install Miniconda with Python 3.12 support
 echo "
 ----------------------------------------
 📥 Downloading and installing Miniconda...
@@ -39,23 +52,24 @@ else
     echo "✅ Miniconda already installed, skipping..."
 fi
 
-# Initialize conda
+# Initialize conda for this shell (non-interactive friendly)
 echo "
 ----------------------------------------
 🐍 Initializing conda...
 ----------------------------------------"
-source /workspace/miniconda3/bin/activate
-conda init bash > /dev/null 2>&1
-eval "$(/workspace/miniconda3/bin/conda shell.bash hook)"
+. /workspace/miniconda3/etc/profile.d/conda.sh
+# (Optional) keep init out of dotfiles in CI/containers
+# conda init bash > /dev/null 2>&1  # not needed here
 
-# Update conda
-echo "Updating conda..."
-conda update -n base -c defaults conda -y
+# Accept Anaconda ToS for defaults channels (newer installers include the plugin)
+# Fall back gracefully if the plugin isn't present.
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main || true
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r || true
 
-# Clone repositories
+# Clone ComfyUI repository
 echo "
 ----------------------------------------
-📥 Cloning repositories...
+📥 Cloning ComfyUI repository...
 ----------------------------------------"
 if [ ! -d "/workspace/ComfyUI/.git" ]; then
     git clone https://github.com/comfyanonymous/ComfyUI.git /workspace/ComfyUI
@@ -63,6 +77,11 @@ else
     echo "✅ ComfyUI repository already exists, skipping clone..."
 fi
 
+# Clone ComfyUI-Manager repository
+echo "
+----------------------------------------
+📥 Installing ComfyUI-Manager...
+----------------------------------------"
 MANAGER_DIR="/workspace/ComfyUI/custom_nodes/ComfyUI-Manager"
 if [ ! -d "$MANAGER_DIR/.git" ]; then
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$MANAGER_DIR"
@@ -70,91 +89,62 @@ else
     echo "✅ ComfyUI-Manager already installed, skipping clone..."
 fi
 
+# Create conda environment with Python 3.12
 echo "
 ----------------------------------------
 🌟 Creating conda environment with Python 3.12...
 ----------------------------------------"
-ENV_NAME="comfyui"
-ENV_PATH="/workspace/miniconda3/envs/$ENV_NAME"
+ENV_PATH="/workspace/miniconda3/envs/comfyui"
 
-# Create environment with conda package included
-create_environment() {
-    echo "🔄 Creating new environment '$ENV_NAME' with Python 3.12 and conda"
-    conda create --name "$ENV_NAME" python=3.12 conda -y
-    
-    # Verify critical files exist
-    if [ ! -f "$ENV_PATH/bin/activate" ]; then
-        echo "❌ Critical error: Activation script still missing after creation!"
-        echo "Contents of $ENV_PATH/bin:"
-        ls -l "$ENV_PATH/bin"
-        echo "Please check disk space and permissions"
-        exit 1
-    fi
-}
-
-# Environment setup logic
-if [ -d "$ENV_PATH" ]; then
-    echo "ℹ️ Existing environment detected"
-    
-    if [ -f "$ENV_PATH/bin/activate" ]; then
-        echo "✅ Activation script exists, verifying Python version..."
-        PYTHON_VERSION=$(conda run -n $ENV_NAME python --version 2>&1 | cut -d' ' -f2 | cut -d. -f1-2)
-        if [ "$PYTHON_VERSION" != "3.12" ]; then
-            echo "⚠️ Wrong Python version ($PYTHON_VERSION), recreating environment..."
-            conda remove --name "$ENV_NAME" --all -y
-            create_environment
-        else
-            echo "✅ Environment is valid with Python 3.12"
-        fi
-    else
-        echo "⚠️ Missing activation script, recreating environment..."
-        rm -rf "$ENV_PATH"
-        create_environment
-    fi
-else
-    create_environment
+# Clean up a broken dir (no python in it)
+if [ -d "$ENV_PATH" ] && [ ! -x "$ENV_PATH/bin/python" ]; then
+  echo "⚠️ Removing invalid environment directory: $ENV_PATH"
+  rm -rf "$ENV_PATH"
 fi
 
-echo "
-----------------------------------------
-🔧 Activating environment...
-----------------------------------------"
-source /workspace/miniconda3/bin/activate "$ENV_NAME"
+if [ ! -x "$ENV_PATH/bin/python" ]; then
+  conda create -p "$ENV_PATH" -y python=3.12
+else
+  # Recreate if not on 3.12
+  PYTHON_VERSION="$("$ENV_PATH/bin/python" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))')"
+  if [ "$PYTHON_VERSION" != "3.12" ]; then
+    echo "⚠️ Existing env uses Python $PYTHON_VERSION, recreating with 3.12..."
+    rm -rf "$ENV_PATH"
+    conda create -p "$ENV_PATH" -y python=3.12
+  fi
+fi
+
+echo "🔄 Activating comfyui environment..."
+conda activate -p "$ENV_PATH" || { echo "❌ Failed to activate environment!"; exit 1; }
 
 # Verify activation
-if [ -z "$CONDA_PREFIX" ] || [ "$CONDA_PREFIX" != "$ENV_PATH" ]; then
-    echo "❌ Activation failed! Trying alternative method..."
-    export PATH="$ENV_PATH/bin:$PATH"
-    export CONDA_DEFAULT_ENV="$ENV_NAME"
-    export CONDA_PREFIX="$ENV_PATH"
-    
-    if [ "$(python -c 'import sys; print(sys.executable)')" != "$ENV_PATH/bin/python" ]; then
-        echo "❌ FATAL: Could not activate environment"
-        echo "Python path: $(which python)"
-        exit 1
-    fi
+if [ "$(command -v python)" != "$ENV_PATH/bin/python" ]; then
+  echo "❌ Conda activation did not set the expected Python."
+  exit 1
 fi
-echo "✅ Activated $CONDA_PREFIX"
 
-# Install system dependencies
+echo "Activated Python: $(which python)"
+python --version
+
+# Install Python requirements for ComfyUI
 echo "
 ----------------------------------------
-🔧 Installing system dependencies...
-----------------------------------------"
-sudo apt update -qq
-sudo apt install -y aria2 jq wget build-essential python3.12-dev
-
-# Install Python dependencies
-echo "
-----------------------------------------
-📦 Installing Python dependencies...
+📦 Installing ComfyUI requirements with Python 3.12...
 ----------------------------------------"
 cd /workspace/ComfyUI
-pip install --upgrade pip
-pip install --no-cache-dir -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install --no-cache-dir -r requirements.txt
 
-cd custom_nodes/ComfyUI-Manager
-pip install --no-cache-dir -r requirements.txt
+# Install Python requirements for ComfyUI-Manager
+echo "
+----------------------------------------
+📦 Installing ComfyUI-Manager requirements...
+----------------------------------------"
+cd "$MANAGER_DIR"
+python -m pip install --no-cache-dir -r requirements.txt
+
+# Return to base environment
+conda deactivate
 
 echo "
 ========================================

@@ -147,28 +147,27 @@ echo "🔄 Activating comfyui environment..."
 set -x  # Enable debug mode to see each command
 
 # 使用直接路径激活环境
-source "$ENV_PATH/bin/activate"
+source "$ENV_PATH/bin/activate" || { echo "❌ Failed to activate environment!"; exit 1; }
 
-# 验证激活状态
-if [ ! -f "$ENV_PATH/bin/activate" ]; then
-    echo "❌ Environment activation script not found: $ENV_PATH/bin/activate"
+# Verify activation
+if [ "$(which python)" != "$ENV_PATH/bin/python" ]; then
+    echo "❌ Failed to activate comfyui environment!"
     exit 1
 fi
 
-# 显式设置环境变量
+# Explicitly set environment variables
 export PATH="$ENV_PATH/bin:$PATH"
 export CONDA_DEFAULT_ENV="comfyui"
 export CONDA_PREFIX="$ENV_PATH"
 
-# 检查Python路径
-which python
-python --version
+# Check Python path
+echo "Activated Python path: $(which python)"
+echo "Python version: $(python --version)"
 
 RESULT=$?
 echo "Activation exit code: $RESULT"
-if [ "$(python -c 'import sys; print(sys.executable)')" != "$ENV_PATH/bin/python" ]; then
+if [ "$RESULT" -ne 0 ]; then
     echo "❌ Failed to activate comfyui environment!"
-    echo "Current Python path: $(which python)"
     exit 1
 fi
 echo "✅ Successfully activated comfyui environment"
@@ -187,7 +186,7 @@ echo "
 ----------------------------------------"
 cd /workspace/ComfyUI
 
-# 确保pip是当前环境的
+# Ensure pip is up to date in the environment
 python -m pip install --upgrade pip
 python -m pip install --no-cache-dir -r requirements.txt
 

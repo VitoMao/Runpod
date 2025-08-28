@@ -115,7 +115,8 @@ else
 fi
 
 echo "🔄 Activating comfyui environment..."
-conda activate -p "$ENV_PATH" || { echo "❌ Failed to activate environment!"; exit 1; }
+# Correct activation command
+conda activate "$ENV_PATH" || { echo "❌ Failed to activate environment!"; exit 1; }
 
 # Verify activation
 if [ "$(command -v python)" != "$ENV_PATH/bin/python" ]; then

@@ -130,6 +130,12 @@ else
     fi
 fi
 
+# Verify the environment creation by checking the activate script
+if [ ! -f "$ENV_PATH/bin/activate" ]; then
+    echo "❌ Environment activation script not found: $ENV_PATH/bin/activate"
+    exit 1
+fi
+
 # 设置环境变量
 export CONDA_ENV_PATH="$ENV_PATH"
 

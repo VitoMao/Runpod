@@ -71,42 +71,94 @@ else
     echo "✅ ComfyUI-Manager already installed, skipping clone..."
 fi
 
-# Create conda environment with Python 3.12
+# 关键修复：使用明确的路径创建环境
 echo "
 ----------------------------------------
 🌟 Creating conda environment with Python 3.12...
 ----------------------------------------"
-if ! conda info --envs | grep -q "comfyui"; then
-    conda create -n comfyui python=3.12 -y
+ENV_PATH="/workspace/miniconda3/envs/comfyui"
+
+# 删除可能存在的无效环境
+if [ -d "$ENV_PATH" ] && [ ! -f "$ENV_PATH/bin/python" ]; then
+    echo "⚠️ Removing invalid environment directory: $ENV_PATH"
+    rm -rf "$ENV_PATH"
+fi
+
+# 检查是否存在有效的Python环境
+if [ ! -f "$ENV_PATH/bin/python" ]; then
+    echo "🔄 Creating new conda environment at $ENV_PATH"
+    
+    # 确保环境目录不存在
+    if [ -d "$ENV_PATH" ]; then
+        rm -rf "$ENV_PATH"
+    fi
+    
+    # 使用明确的路径创建环境
+    conda create -p "$ENV_PATH" python=3.12 -y
+    
+    # 验证环境创建
+    if [ ! -f "$ENV_PATH/bin/python" ]; then
+        echo "❌ Failed to create conda environment!"
+        echo "Please check available disk space and permissions."
+        exit 1
+    fi
+    
     echo "✅ Created comfyui environment with Python 3.12"
-    # 关键修复：显式刷新环境列表
-    conda info --envs > /dev/null
 else
-    echo "✅ comfyui environment already exists, skipping creation..."
-    # Check Python version in existing environment
-    PYTHON_VERSION=$(conda run -n comfyui python --version 2>&1 | cut -d' ' -f2 | cut -d. -f1-2)
+    echo "✅ comfyui environment already exists, checking Python version..."
+    
+    # 检查Python版本
+    PYTHON_VERSION=$("$ENV_PATH/bin/python" --version 2>&1 | cut -d' ' -f2 | cut -d. -f1-2)
     if [ "$PYTHON_VERSION" != "3.12" ]; then
         echo "⚠️ Existing environment uses Python $PYTHON_VERSION, recreating with 3.12..."
-        conda env remove -n comfyui -y
-        conda create -n comfyui python=3.12 -y
+        rm -rf "$ENV_PATH"
+        conda create -p "$ENV_PATH" python=3.12 -y
+        
+        # 验证环境创建
+        if [ ! -f "$ENV_PATH/bin/python" ]; then
+            echo "❌ Failed to recreate conda environment!"
+            exit 1
+        fi
+        
         echo "✅ Recreated comfyui environment with Python 3.12"
-        # 关键修复：显式刷新环境列表
-        conda info --envs > /dev/null
+    else
+        echo "✅ Existing environment has Python 3.12"
     fi
 fi
 
-# 关键修复：使用绝对路径激活环境
+# 设置环境变量
+export CONDA_ENV_PATH="$ENV_PATH"
+
 echo "
 ----------------------------------------
 🔧 Setting up comfyui environment...
 ----------------------------------------"
 echo "🔄 Activating comfyui environment..."
 set -x  # Enable debug mode to see each command
-source activate /workspace/miniconda3/envs/comfyui
+
+# 使用直接路径激活环境
+source "$ENV_PATH/bin/activate"
+
+# 验证激活状态
+if [ ! -f "$ENV_PATH/bin/activate" ]; then
+    echo "❌ Environment activation script not found: $ENV_PATH/bin/activate"
+    exit 1
+fi
+
+# 显式设置环境变量
+export PATH="$ENV_PATH/bin:$PATH"
+export CONDA_DEFAULT_ENV="comfyui"
+export CONDA_PREFIX="$ENV_PATH"
+
+# 检查Python路径
+which python
+python --version
+
 RESULT=$?
 echo "Activation exit code: $RESULT"
-if [ "$CONDA_DEFAULT_ENV" != "comfyui" ]; then
-    echo "❌ Failed to activate comfyui environment! Current env: $CONDA_DEFAULT_ENV"
+if [ "$(python -c 'import sys; print(sys.executable)')" != "$ENV_PATH/bin/python" ]; then
+    echo "❌ Failed to activate comfyui environment!"
+    echo "Current Python path: $(which python)"
     exit 1
 fi
 echo "✅ Successfully activated comfyui environment"
@@ -125,24 +177,22 @@ echo "
 ----------------------------------------"
 cd /workspace/ComfyUI
 
-# Ensure pip is up-to-date
-pip install --upgrade pip
-
-# Install requirements with Python 3.12
-pip install --no-cache-dir -r requirements.txt
+# 确保pip是当前环境的
+python -m pip install --upgrade pip
+python -m pip install --no-cache-dir -r requirements.txt
 
 echo "
 ----------------------------------------
 📦 Installing ComfyUI-Manager requirements...
 ----------------------------------------"
 cd custom_nodes/ComfyUI-Manager
-pip install --no-cache-dir -r requirements.txt
+python -m pip install --no-cache-dir -r requirements.txt
 
 # Return to base environment
 conda deactivate
 
 echo "
 ========================================
-✨ Setup complete! ✨
+✨ Setup complete!  ✨
 ========================================
 "

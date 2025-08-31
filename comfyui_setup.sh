@@ -153,6 +153,10 @@ python -m pip install --no-cache-dir -r requirements.txt
 # Return to base environment
 conda deactivate
 
+# create a symbolic link
+mv /workspace/ComfyUI/models /workspace/
+ln -s /workspace/models/ /workspace/ComfyUI/models
+
 echo "
 ========================================
 ✨ Setup complete!  ✨

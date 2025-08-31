@@ -133,6 +133,15 @@ cd /workspace/ComfyUI
 python -m pip install --upgrade pip
 python -m pip install --no-cache-dir -r requirements.txt
 
+# Install InsightFace
+echo "
+----------------------------------------
+📦 Installing InsightFace...
+----------------------------------------"
+apt update
+apt install build-essential python3-dev
+python3 -m pip install insightface
+
 # Install Python requirements for ComfyUI-Manager
 echo "
 ----------------------------------------

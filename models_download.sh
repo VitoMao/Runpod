@@ -6,8 +6,9 @@ echo "
 📥 Downloading models...
 ----------------------------------------"
 
-ROOT="/workspace/ComfyUI"
-cd "$ROOT"
+MODELS_DIR="/workspace/models"
+mkdir -p "$MODELS_DIR"
+cd "$MODELS_DIR"
 
 MODELS_JSON="/tmp/models.json"
 MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
@@ -19,26 +20,12 @@ while IFS= read -r p; do
   mkdir -p "$(dirname "$p")"
 done < <(jq -r '.[].path' "$MODELS_JSON")
 
-# Build aria2 input: use dir=<dirname> and out=<basename>
+# Build aria2 input file
 ARIA_IN="/tmp/aria2_input.txt"
 jq -r '
   .[] |
-  . as $i |
-  "\($i.url)\n  dir=\(($i.path | split("/")[:-1] | join("/")))\n  out=\(($i.path | split("/")[-1]))\n"
+  "\(.url)\n  dir=\(.path | sub("/[^/]*$"; "") | if . == "" then "." else . end)\n  out=\(.path | capture("/([^/]*)$")."0" // .path)\n"
 ' "$MODELS_JSON" > "$ARIA_IN"
-
-# Move any mistakenly nested files from a previous run (caused by using full path in out=)
-if [ -d "$ROOT/workspace/ComfyUI/models" ]; then
-  echo "⚠️  Found nested downloads from a previous run; migrating..."
-  while IFS= read -r -d '' f; do
-    rel="${f#"$ROOT/workspace/ComfyUI/"}"          # strip the duplicated prefix
-    dest="$ROOT/$rel"
-    mkdir -p "$(dirname "$dest")"
-    mv -n "$f" "$dest"
-  done < <(find "$ROOT/workspace/ComfyUI/models" -type f -print0 || true)
-  # Clean up empty dirs
-  find "$ROOT/workspace" -type d -empty -delete || true
-fi
 
 # Batch download
 aria2c -x 16 -s 16 -k 1M \
@@ -51,13 +38,13 @@ aria2c -x 16 -s 16 -k 1M \
   -l /tmp/aria2.log \
   --input-file="$ARIA_IN"
 
-# Robust verification: report missing and extras
+# Robust verification
 echo "
 ----------------------------------------
 🔎 Verifying downloads...
 ----------------------------------------"
 mapfile -t EXPECTED < <(jq -r '.[].path' "$MODELS_JSON" | sort -u)
-mapfile -t FOUND < <(find "$ROOT/models" -type f -printf '%P\n' | sed 's#^#models/#' | sort -u || true)
+mapfile -t FOUND < <(find . -type f -printf '%P\n' | sort -u)
 
 # Print missing
 missing=()
@@ -87,13 +74,12 @@ if [ "${#extras[@]}" -gt 0 ]; then
   printf '  - %s\n' "${extras[@]}"
 fi
 
-# Final Python / conda check
+# Final Python/conda check
 echo "
 ----------------------------------------
 🐍 Final environment check:
 ----------------------------------------"
 if command -v conda >/dev/null 2>&1; then
-  # initialize conda for non-interactive shells
   eval "$(conda shell.bash hook)"
   if conda info --envs | grep -q '^comfyui[[:space:]]'; then
     conda activate comfyui

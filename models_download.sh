@@ -15,16 +15,17 @@ MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
 
 wget -q -O "$MODELS_JSON" "$MODELS_URL"
 
-# Create required directories (handles spaces safely)
+# Create required directories with proper object filtering
 while IFS= read -r p; do
   mkdir -p "$(dirname "$p")"
-done < <(jq -r '.[].path' "$MODELS_JSON")
+done < <(jq -r '.[] | select(type=="object" and has("path")) | .path' "$MODELS_JSON")
 
-# Build aria2 input file
+# Build aria2 input file with robust filtering
 ARIA_IN="/tmp/aria2_input.txt"
 jq -r '
-  .[] |
-  "\(.url)\n  dir=\(.path | sub("/[^/]*$"; "") | if . == "" then "." else . end)\n  out=\(.path | capture("/([^/]*)$")."0" // .path)\n"
+  .[] | 
+  select(type=="object" and has("path") and has("url")) | 
+  "\(.url)\n  dir=\(.path | if test("/") then sub("/[^/]*$"; "") else "." end)\n  out=\(.path | split("/")[-1])\n"
 ' "$MODELS_JSON" > "$ARIA_IN"
 
 # Batch download
@@ -43,7 +44,7 @@ echo "
 ----------------------------------------
 🔎 Verifying downloads...
 ----------------------------------------"
-mapfile -t EXPECTED < <(jq -r '.[].path' "$MODELS_JSON" | sort -u)
+mapfile -t EXPECTED < <(jq -r '.[] | select(type=="object" and has("path")) | .path' "$MODELS_JSON" | sort -u)
 mapfile -t FOUND < <(find . -type f -printf '%P\n' | sort -u)
 
 # Print missing

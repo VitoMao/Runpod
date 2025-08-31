@@ -14,22 +14,21 @@ MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
 
 wget -q -O "$MODELS_JSON" "$MODELS_URL"
 
-# Create required directories (handles spaces safely)
+# Create required directories
 while IFS= read -r p; do
-  # Ensure path starts with /workspace/models
+  # Strip /workspace/models/ prefix and create subdirectories
   clean_path="${p#/workspace/models/}"
   mkdir -p "$MODELS_ROOT/$(dirname "$clean_path")"
 done < <(jq -r '.[].path' "$MODELS_JSON")
 
-# Build aria2 input: use dir=<dirname> and out=<basename>
+# Build aria2 input correctly
 ARIA_IN="/tmp/aria2_input.txt"
 jq -r '
   .[] |
-  . as $i |
-  "\($i.url)\n  dir=\($MODELS_ROOT + "/" + ($i.path | split("/")[3:-1] | join("/")))\n  out=\(($i.path | split("/")[-1]))\n"
+  "\(.url)\n  dir=\(.path | sub("/[^/]*$"; ""))\n  out=\(.path | split("/")[-1])\n"
 ' "$MODELS_JSON" > "$ARIA_IN"
 
-# Batch download with improved reliability
+# Batch download
 aria2c -x 16 -s 16 -k 1M \
   --max-concurrent-downloads=3 \
   --max-tries=10 \
@@ -40,7 +39,7 @@ aria2c -x 16 -s 16 -k 1M \
   -l /tmp/aria2.log \
   --input-file="$ARIA_IN"
 
-# Robust verification using absolute paths
+# Verification
 echo "
 ----------------------------------------
 🔎 Verifying downloads...
@@ -76,7 +75,7 @@ if [ "${#extras[@]}" -gt 0 ]; then
   printf '  - %s\n' "${extras[@]}"
 fi
 
-# Final Python/conda check remains unchanged
+# Final environment check
 echo "
 ----------------------------------------
 🐍 Final environment check:

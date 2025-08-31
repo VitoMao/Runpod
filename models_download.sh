@@ -6,32 +6,33 @@ echo "
 📥 Downloading models...
 ----------------------------------------"
 
-MODELS_DIR="/workspace/models"
-mkdir -p "$MODELS_DIR"
-cd "$MODELS_DIR"
+MODELS_ROOT="/workspace/models"
+mkdir -p "$MODELS_ROOT"
 
 MODELS_JSON="/tmp/models.json"
 MODELS_URL="https://raw.githubusercontent.com/VitoMao/Runpod/main/models.json"
 
 wget -q -O "$MODELS_JSON" "$MODELS_URL"
 
-# Create required directories with proper object filtering
+# Create required directories (handles spaces safely)
 while IFS= read -r p; do
-  mkdir -p "$(dirname "$p")"
-done < <(jq -r '.[] | select(type=="object" and has("path")) | .path' "$MODELS_JSON")
+  # Ensure path starts with /workspace/models
+  clean_path="${p#/workspace/models/}"
+  mkdir -p "$MODELS_ROOT/$(dirname "$clean_path")"
+done < <(jq -r '.[].path' "$MODELS_JSON")
 
-# Build aria2 input file with robust filtering
+# Build aria2 input: use dir=<dirname> and out=<basename>
 ARIA_IN="/tmp/aria2_input.txt"
 jq -r '
-  .[] | 
-  select(type=="object" and has("path") and has("url")) | 
-  "\(.url)\n  dir=\(.path | if test("/") then sub("/[^/]*$"; "") else "." end)\n  out=\(.path | split("/")[-1])\n"
+  .[] |
+  . as $i |
+  "\($i.url)\n  dir=\($MODELS_ROOT + "/" + ($i.path | split("/")[3:-1] | join("/")))\n  out=\(($i.path | split("/")[-1]))\n"
 ' "$MODELS_JSON" > "$ARIA_IN"
 
-# Batch download
+# Batch download with improved reliability
 aria2c -x 16 -s 16 -k 1M \
   --max-concurrent-downloads=3 \
-  --max-tries=5 \
+  --max-tries=10 \
   --continue=true \
   --allow-overwrite=true \
   --auto-file-renaming=false \
@@ -39,13 +40,13 @@ aria2c -x 16 -s 16 -k 1M \
   -l /tmp/aria2.log \
   --input-file="$ARIA_IN"
 
-# Robust verification
+# Robust verification using absolute paths
 echo "
 ----------------------------------------
 🔎 Verifying downloads...
 ----------------------------------------"
-mapfile -t EXPECTED < <(jq -r '.[] | select(type=="object" and has("path")) | .path' "$MODELS_JSON" | sort -u)
-mapfile -t FOUND < <(find . -type f -printf '%P\n' | sort -u)
+mapfile -t EXPECTED < <(jq -r '.[].path' "$MODELS_JSON" | sort -u)
+mapfile -t FOUND < <(find "$MODELS_ROOT" -type f -printf '%p\n' | sort -u || true)
 
 # Print missing
 missing=()
@@ -75,7 +76,7 @@ if [ "${#extras[@]}" -gt 0 ]; then
   printf '  - %s\n' "${extras[@]}"
 fi
 
-# Final Python/conda check
+# Final Python/conda check remains unchanged
 echo "
 ----------------------------------------
 🐍 Final environment check:

@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# Install system dependencies
+echo "
+----------------------------------------
+🔧 Installing system dependencies...
+----------------------------------------"
+if command -v apt-get >/dev/null 2>&1; then
+  SUDO=""
+  command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+  export DEBIAN_FRONTEND=noninteractive
+  $SUDO apt-get update -qq
+  $SUDO apt-get install -y --no-install-recommends wget aria2 jq
+fi
+
 echo "
 ----------------------------------------
 📥 Downloading models...

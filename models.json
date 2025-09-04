@@ -100,8 +100,19 @@
   },
 
   {
-    "url": "https://huggingface.co/Comfy-Org/Qwen-Image_resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true",
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors?download=true",
     "path": "/workspace/models/vae/qwen_image_vae.safetensors"
+  },
+
+  {
+    "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors?download=true",
+    "path": "/workspace/models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors"
+  },
+
+   {
+    "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors?download=true",
+    "path": "/workspace/models/loras/qwen/qwen_image_edit_fp8_e4m3fn.safetensors"
   }
 ]
+
 
